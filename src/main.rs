@@ -89,7 +89,7 @@ impl Game {
             shape: PLAYER_SHIP,
         };
 
-        let enemies: Vec<Ship> = create_enemy_grid(max_height, max_width, 5, 8);
+        let enemies: Vec<Ship> = create_enemy_grid(max_height, max_width, 5, 12);
         Self {
             max_height,
             max_width,
