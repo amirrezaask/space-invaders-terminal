@@ -2,12 +2,14 @@ use ncurses::*;
 
 const WELCOME: &str = "welcome to space invaders";
 const PLAYER_SHIP: &'static str = "YOUR SHIP";
+const YOU_WON: &'static str = "YOU WON, NICE JOB";
+const YOU_LOST: &'static str = "GET GOOOD PLS";
 const ENEMY1_SHIP: &'static str = "@@";
 const ROCKET: &'static str = "^";
 const KEY_SPACE: i32 = ' ' as i32;
 const KEY_EXIT: i32 = 'q' as i32;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 enum Direction {
     Up,
     Down,
@@ -15,7 +17,7 @@ enum Direction {
 
 type ShipId = usize; // pointer to which ship in game struct
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct Rocket {
     max_allowed_y: i32,
     max_allowed_x: i32,
@@ -84,14 +86,29 @@ impl Position {
         self.x -= 1;
     }
 }
+
+#[derive(Debug, Clone, PartialEq)]
+enum Side {
+    Player,
+    Enemy,
+}
 #[derive(Debug, Clone)]
 struct Ship {
     pos: Position,
     shape: &'static str,
     destroyed: bool,
+    side: Side,
 }
 
 impl Ship {
+    pub fn hit_boxes(&self) -> Vec<(i32, i32)> {
+        let mut hits = Vec::<(i32, i32)>::new();
+        for x in self.pos.x..self.pos.x+self.shape.len() as i32 {
+            hits.push((x, self.pos.y));
+        }
+
+        return hits;
+    }
     pub fn draw(&self) {
         if !self.destroyed {
             wmove(stdscr(), self.pos.y, self.pos.x);
@@ -114,6 +131,12 @@ impl Ship {
 
     
 }
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum GameResult {
+    Unknown,
+    Won,
+    Lost,
+}
 #[derive(Debug)]
 struct Game {
     max_height: i32,
@@ -122,6 +145,7 @@ struct Game {
     ships: Vec<Ship>,
     rockets: Vec<Rocket>,
     msg: Option<String>,
+    result: GameResult,
     done: bool,
 }
 
@@ -139,6 +163,7 @@ fn create_enemy_grid(max_height: i32, max_width: i32, num_rows: i32, num_cols: i
                 },
                 shape: ENEMY1_SHIP,
                 destroyed: false,
+                side: Side::Enemy,
             })
         }
     }
@@ -146,8 +171,13 @@ fn create_enemy_grid(max_height: i32, max_width: i32, num_rows: i32, num_cols: i
     ships
 }
 
-// fn ship_rocket_colision(rocket: &Rocket, ship: &Ship) -> bool {
-// }
+fn ship_rocket_colision(rocket: &Rocket, ship: &Ship) -> bool {
+    if !rocket.destroyed && !ship.destroyed {
+        return ship.hit_boxes().contains(&(rocket.pos.x, rocket.pos.y));
+    } else {
+        return false;
+    }
+}
 
 impl Game {
     pub fn new() -> Self {
@@ -165,9 +195,10 @@ impl Game {
             },
             shape: PLAYER_SHIP,
             destroyed: false,
+            side: Side::Player,
         };
 
-        let mut ships: Vec<Ship> = create_enemy_grid(max_height, max_width, 5, 12);
+        let mut ships: Vec<Ship> = create_enemy_grid(max_height, max_width, 5, 10);
         ships.insert(0, player);
         Self {
             max_height,
@@ -175,6 +206,7 @@ impl Game {
             ships,
             rockets: vec![],
             msg: None,
+            result: GameResult::Unknown,
             done: false,
         }
     }
@@ -200,31 +232,35 @@ impl Game {
             rocket.progress();
         }
         // find colisions of rockets and ships
-        for ship in self.ships.iter_mut () {
+        for ship in self.ships.iter_mut(){
             for rocket in self.rockets.iter_mut() {
-                if !rocket.destroyed && !ship.destroyed && ship.pos.x == rocket.pos.x && ship.pos.y == rocket.pos.y  {
+                if ship_rocket_colision(rocket, ship)  {
                     ship.destroyed = true;
                     rocket.destroyed = true;
                 }
             }
         }
-        // // remove destroyed rockets
-        // for (idx, _) in self.rockets.iter_mut().enumerate() {
-        //     if self.rockets[idx].destroyed {
-        //         self.rockets.remove(idx);
-        //     }
-
-        // }
-
-        // // ships
-        // if self.ships.len() > 1 {
-        //     for idx in 0..self.ships.len() -1 {
-        //         if self.ships[idx].destroyed {
-        //             self.ships.remove(idx);
-        //         }
-
-        //     }
-        // }
+        // remove destroyed rockets and ships
+        self.rockets = self.rockets.clone().into_iter().filter(|rocket| !rocket.destroyed).collect();
+        self.ships = self.ships.clone().into_iter().filter(|ship| !ship.destroyed).collect();
+        
+        if self.ships.len() < 2 {
+            match self.ships.len() {
+                1 => {
+                    if self.ships[0].side == Side::Player {
+                        self.result = GameResult::Won;
+                    } else {
+                        self.result = GameResult::Lost;
+                    }
+                }
+                0 => {
+                    self.result = GameResult::Lost;
+                }
+                _ => {
+                    panic!()
+                }
+            }
+        }
         
     }
     fn render(&mut self) {
@@ -235,6 +271,30 @@ impl Game {
             self.msg = None;
             getch();
             self.clear();
+        }
+
+        if self.result != GameResult::Unknown {
+            match self.result {
+                GameResult::Won => {
+                    self.print_center(YOU_WON);
+                    self.done = true;
+                    nocbreak();
+                    getch();
+                }
+                GameResult::Lost => {
+                    self.print_center(YOU_LOST);
+                    self.done = true;
+                    nocbreak();
+                    getch();
+                }
+
+                _ => {
+
+                }
+            }
+
+            return;
+
         }
         //draw enemies
         for ship in self.ships.iter_mut() {
@@ -267,7 +327,6 @@ impl Game {
                 break;
             }
             self.render();
-
             let player_move = getch();
             match player_move {
                 KEY_LEFT => {
@@ -305,5 +364,4 @@ impl Game {
 fn main() {
     let mut game = Game::new();
     game.start();
-    println!("\n\n{:?}", game);
 }
