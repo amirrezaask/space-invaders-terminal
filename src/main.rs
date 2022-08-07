@@ -3,20 +3,56 @@ use ncurses::*;
 const WELCOME: &str = "welcome to space invaders";
 const PLAYER_SHIP: &'static str = "YOUR SHIP";
 const ENEMY1_SHIP: &'static str = "@@";
+const ROCKET: &'static str = "^";
 const KEY_SPACE: i32 = ' ' as i32;
 const KEY_EXIT: i32 = 'q' as i32;
 
+#[derive(Debug)]
 struct Rocket {
     pos: Position,
     shape: &'static str,
 }
 
-#[derive(Debug)]
+impl Rocket {
+    pub fn draw(&self) {
+        wmove(stdscr(), self.pos.y, self.pos.x);
+        addstr(&self.shape);
+    }
+    pub fn up(&mut self) {
+        self.pos.up();
+    }
+    pub fn down(&mut self) {
+        self.pos.down();
+    }
+    pub fn right(&mut self) {
+        self.pos.right();
+    }
+    pub fn left(&mut self) {
+        self.pos.left();
+    }
+}
+
+#[derive(Debug, Clone)]
 struct Position {
     x: i32,
     y: i32,
 }
-#[derive(Debug)]
+
+impl Position {
+    pub fn up(&mut self) {
+        self.y -= 1;
+    }
+    pub fn down(&mut self) {
+        self.y += 1;
+    }
+    pub fn right(&mut self) {
+        self.x += 1;
+    }
+    pub fn left(&mut self) {
+        self.x -= 1;
+    }
+}
+#[derive(Debug, Clone)]
 struct Ship {
     pos: Position,
     shape: &'static str,
@@ -29,17 +65,19 @@ impl Ship {
     }
 
     pub fn up(&mut self) {
-        self.pos.y -= 1;
+        self.pos.up();
     }
     pub fn down(&mut self) {
-        self.pos.y += 1;
+        self.pos.down();
     }
     pub fn right(&mut self) {
-        self.pos.x += 1;
+        self.pos.right();
     }
     pub fn left(&mut self) {
-        self.pos.x -= 1;
+        self.pos.left();
     }
+
+    
 }
 #[derive(Debug)]
 struct Game {
@@ -48,6 +86,7 @@ struct Game {
 
     player: Ship,
     enemies: Vec<Ship>,
+    rockets: Vec<Rocket>,
     msg: Option<String>,
     done: bool,
 }
@@ -95,6 +134,7 @@ impl Game {
             max_width,
             player,
             enemies,
+            rockets: vec![],
             msg: None,
             done: false,
         }
@@ -102,7 +142,12 @@ impl Game {
     pub fn clear(&self) {
         clear();
     }
-
+    pub fn ship_shoots(&mut self, ship: &Ship) {
+        self.rockets.push(Rocket {
+            pos: Position { x: ship.pos.x + ship.shape.len() as i32/2, y: ship.pos.y-1 },
+            shape: ROCKET,
+        });
+    }
     fn render(&mut self) {
         self.clear();
         if self.msg.is_some() {
@@ -117,6 +162,11 @@ impl Game {
         //draw enemies
         for enemy in self.enemies.iter_mut() {
             enemy.draw();
+        }
+
+        //draw rockets
+        for rocket in self.rockets.iter_mut() {
+            rocket.draw();
         }
     }
 
@@ -155,7 +205,7 @@ impl Game {
                     self.player.down();
                 }
                 KEY_SPACE => {
-                    // self.player.shoot();
+                    self.ship_shoots(&self.player.clone());
                 }
                 KEY_EXIT => break,
                 _ => {
