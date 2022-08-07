@@ -8,15 +8,47 @@ const KEY_SPACE: i32 = ' ' as i32;
 const KEY_EXIT: i32 = 'q' as i32;
 
 #[derive(Debug)]
+enum Direction {
+    Up,
+    Down,
+}
+
+type ShipId = usize; // pointer to which ship in game struct
+
+#[derive(Debug)]
 struct Rocket {
+    max_allowed_y: i32,
+    max_allowed_x: i32,
+    owner: ShipId, 
     pos: Position,
     shape: &'static str,
+    direction: Direction,
+    destroyed: bool,
 }
 
 impl Rocket {
+    pub fn progress(&mut self) {
+        match self.direction {
+            Direction::Up => {
+                self.pos.y -= 1;
+                if self.pos.y < 0 {
+                    self.destroyed = true;
+                }
+            }
+            Direction::Down => {
+                self.pos.y += 1;
+                if self.pos.y > self.max_allowed_y {
+                    self.destroyed = true;
+                }
+
+            }
+        }
+    }
     pub fn draw(&self) {
-        wmove(stdscr(), self.pos.y, self.pos.x);
-        addstr(&self.shape);
+        if !self.destroyed {
+            wmove(stdscr(), self.pos.y, self.pos.x);
+            addstr(&self.shape);
+        }
     }
     pub fn up(&mut self) {
         self.pos.up();
@@ -56,12 +88,15 @@ impl Position {
 struct Ship {
     pos: Position,
     shape: &'static str,
+    destroyed: bool,
 }
 
 impl Ship {
     pub fn draw(&self) {
-        wmove(stdscr(), self.pos.y, self.pos.x);
-        addstr(&self.shape);
+        if !self.destroyed {
+            wmove(stdscr(), self.pos.y, self.pos.x);
+            addstr(&self.shape);
+        }
     }
 
     pub fn up(&mut self) {
@@ -84,8 +119,7 @@ struct Game {
     max_height: i32,
     max_width: i32,
 
-    player: Ship,
-    enemies: Vec<Ship>,
+    ships: Vec<Ship>,
     rockets: Vec<Rocket>,
     msg: Option<String>,
     done: bool,
@@ -104,12 +138,16 @@ fn create_enemy_grid(max_height: i32, max_width: i32, num_rows: i32, num_cols: i
                     y: (max_height / 8) + i as i32,
                 },
                 shape: ENEMY1_SHIP,
+                destroyed: false,
             })
         }
     }
 
     ships
 }
+
+// fn ship_rocket_colision(rocket: &Rocket, ship: &Ship) -> bool {
+// }
 
 impl Game {
     pub fn new() -> Self {
@@ -126,14 +164,15 @@ impl Game {
                 y: (max_height - max_height / 6),
             },
             shape: PLAYER_SHIP,
+            destroyed: false,
         };
 
-        let enemies: Vec<Ship> = create_enemy_grid(max_height, max_width, 5, 12);
+        let mut ships: Vec<Ship> = create_enemy_grid(max_height, max_width, 5, 12);
+        ships.insert(0, player);
         Self {
             max_height,
             max_width,
-            player,
-            enemies,
+            ships,
             rockets: vec![],
             msg: None,
             done: false,
@@ -142,13 +181,54 @@ impl Game {
     pub fn clear(&self) {
         clear();
     }
-    pub fn ship_shoots(&mut self, ship: &Ship) {
+    pub fn shoot_rocket(&mut self, idx: ShipId) {
+        let ship = &self.ships[idx];
         self.rockets.push(Rocket {
+            max_allowed_x: self.max_height,
+            max_allowed_y: self.max_width,
             pos: Position { x: ship.pos.x + ship.shape.len() as i32/2, y: ship.pos.y-1 },
             shape: ROCKET,
+            direction: Direction::Up,
+            owner: idx,
+            destroyed: false,
+                
         });
     }
+    fn update_states(&mut self) {
+        // update rockets
+        for rocket in self.rockets.iter_mut() {
+            rocket.progress();
+        }
+        // find colisions of rockets and ships
+        for ship in self.ships.iter_mut () {
+            for rocket in self.rockets.iter_mut() {
+                if !rocket.destroyed && !ship.destroyed && ship.pos.x == rocket.pos.x && ship.pos.y == rocket.pos.y  {
+                    ship.destroyed = true;
+                    rocket.destroyed = true;
+                }
+            }
+        }
+        // // remove destroyed rockets
+        // for (idx, _) in self.rockets.iter_mut().enumerate() {
+        //     if self.rockets[idx].destroyed {
+        //         self.rockets.remove(idx);
+        //     }
+
+        // }
+
+        // // ships
+        // if self.ships.len() > 1 {
+        //     for idx in 0..self.ships.len() -1 {
+        //         if self.ships[idx].destroyed {
+        //             self.ships.remove(idx);
+        //         }
+
+        //     }
+        // }
+        
+    }
     fn render(&mut self) {
+        self.update_states();
         self.clear();
         if self.msg.is_some() {
             self.print_center(self.msg.clone().unwrap().as_str());
@@ -156,19 +236,17 @@ impl Game {
             getch();
             self.clear();
         }
-        // draw player
-        self.player.draw();
-
         //draw enemies
-        for enemy in self.enemies.iter_mut() {
-            enemy.draw();
+        for ship in self.ships.iter_mut() {
+            ship.draw();
         }
 
         //draw rockets
         for rocket in self.rockets.iter_mut() {
             rocket.draw();
         }
-    }
+
+   }
 
     pub fn print_center(&self, text: &str) {
         let center = (
@@ -183,6 +261,7 @@ impl Game {
         self.msg = Some(WELCOME.to_string());
         self.render();
         getch();
+        halfdelay(1);
         loop {
             if self.done {
                 break;
@@ -190,24 +269,31 @@ impl Game {
             self.render();
 
             let player_move = getch();
-
             match player_move {
                 KEY_LEFT => {
-                    self.player.left();
+                    self.ships[0].left();
+                    self.update_states();
                 }
                 KEY_RIGHT => {
-                    self.player.right();
+                    self.ships[0].right();
+                    self.update_states();
                 }
                 KEY_UP => {
-                    self.player.up();
+                    self.ships[0].up();
+                    self.update_states();
                 }
                 KEY_DOWN => {
-                    self.player.down();
+                    self.ships[0].down();
+                    self.update_states();
                 }
                 KEY_SPACE => {
-                    self.ship_shoots(&self.player.clone());
+                    self.shoot_rocket(0);
+                    self.update_states();
                 }
                 KEY_EXIT => break,
+                ERR => { // user did not enter any thing just update states
+                   continue;
+                }
                 _ => {
                     self.msg = Some("unkown key".to_string());
                 }
