@@ -1,4 +1,6 @@
 use ncurses::*;
+use rand::distributions::{Distribution, Standard};
+use rand::Rng;
 
 const WELCOME: &str = "welcome to space invaders";
 const PLAYER_SHIP: &'static str = "YOUR SHIP";
@@ -8,12 +10,33 @@ const ENEMY1_SHIP: &'static str = "@@";
 const ROCKET: &'static str = "^";
 const KEY_SPACE: i32 = ' ' as i32;
 const KEY_EXIT: i32 = 'q' as i32;
+const ENEMY_GRID: (i32, i32) = (5, 5); 
 
 #[derive(Debug, Clone)]
 enum Direction {
     Up,
     Down,
+    Left,
+    Right
 }
+
+impl Direction {
+    pub fn random() -> Direction {
+        let mut rng = rand::thread_rng();
+        let number = rng.gen_range(1..=4);
+
+        return match number {
+            1 => Direction::Up,
+            2 => Direction::Down,
+            3 => Direction::Right,
+            4 => Direction::Left,
+            _ => unreachable!()
+        }
+    }
+}
+
+
+
 
 type ShipId = usize; // pointer to which ship in game struct
 
@@ -44,6 +67,7 @@ impl Rocket {
                 }
 
             }
+            _ => {}
         }
     }
     pub fn draw(&self) {
@@ -73,6 +97,23 @@ struct Position {
 }
 
 impl Position {
+    pub fn move_into(&mut self, d: &Direction) {
+        match d {
+            Direction::Up => {
+                self.up();
+            }
+            Direction::Down => {
+                self.down();
+            }
+
+            Direction::Left => {
+                self.left();
+            }
+            Direction::Right => {
+                self.right();
+            }
+        }
+    }
     pub fn up(&mut self) {
         self.y -= 1;
     }
@@ -198,7 +239,7 @@ impl Game {
             side: Side::Player,
         };
 
-        let mut ships: Vec<Ship> = create_enemy_grid(max_height, max_width, 5, 10);
+        let mut ships: Vec<Ship> = create_enemy_grid(max_height, max_width, ENEMY_GRID.0, ENEMY_GRID.1);
         ships.insert(0, player);
         Self {
             max_height,
@@ -226,10 +267,53 @@ impl Game {
                 
         });
     }
+    fn valid_move_for_a_ship(max_height:i32, max_width: i32, ship: &Ship, d: &Direction) -> bool {
+        match d {
+            Direction::Up => {
+                if ship.pos.y-1 < 1 {
+                    return false;
+                }
+            }
+
+            Direction::Down => {
+                if ship.pos.y+1 > max_height-1 {
+                    return false;
+                }
+            }
+
+            Direction::Left => {
+                if ship.pos.x-1 < 1 {
+                    return false;
+                }
+            }
+
+            Direction::Right => {
+                if ship.pos.x+1 > max_width-1 {
+                    return false;
+                }
+            }
+        }
+
+
+        return true;
+    }
     fn update_states(&mut self) {
         // update rockets
         for rocket in self.rockets.iter_mut() {
             rocket.progress();
+        }
+
+        // move enemy ships
+        for idx in 1..self.ships.len() {
+            let mut ship = &mut self.ships[idx];
+            loop {
+                let direction = Direction::random();
+                if Self::valid_move_for_a_ship(self.max_height, self.max_width, ship, &direction) {
+                    ship.pos.move_into(&direction);
+                    break;
+                }
+            }
+            
         }
         // find colisions of rockets and ships
         for ship in self.ships.iter_mut(){
