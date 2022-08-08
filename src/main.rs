@@ -17,19 +17,27 @@ enum Direction {
     Up,
     Down,
     Left,
-    Right
+    Right,
+    UpLeft,
+    UpRight,
+    DownLeft,
+    DownRight,
 }
 
 impl Direction {
     pub fn random() -> Direction {
         let mut rng = rand::thread_rng();
-        let number = rng.gen_range(1..=4);
+        let number = rng.gen_range(1..=8);
 
         return match number {
             1 => Direction::Up,
             2 => Direction::Down,
             3 => Direction::Right,
             4 => Direction::Left,
+            5 => Direction::UpLeft,
+            6 => Direction::UpRight,
+            7 => Direction::DownLeft,
+            8 => Direction::DownRight,
             _ => unreachable!()
         }
     }
@@ -112,6 +120,23 @@ impl Position {
             Direction::Right => {
                 self.right();
             }
+            Direction::UpLeft => {
+                self.up();
+                self.left();
+            }
+            Direction::UpRight => {
+                self.up();
+                self.right();
+            }
+            Direction::DownLeft => {
+                self.down();
+                self.left();
+            }
+            Direction::DownRight => {
+                self.down();
+                self.right();
+            }
+
         }
     }
     pub fn up(&mut self) {
@@ -292,6 +317,30 @@ impl Game {
                     return false;
                 }
             }
+
+            Direction::UpLeft => {
+                if ship.pos.y-1 < 1 || ship.pos.x-1 < 1 {
+                    return false;
+                }
+            }
+            Direction::UpRight => {
+                if ship.pos.y-1 < 1 || ship.pos.x+1 > max_width - 1 {
+                    return false;
+                }
+            }
+            Direction::DownLeft => {
+                if ship.pos.y+1 > max_height-1 || ship.pos.x-1 < 1 {
+                    return false;
+                }
+
+            }
+            Direction::DownRight => {
+                if ship.pos.y+1 > max_height-1 || ship.pos.x+1 > max_width -1 {
+                    return false;
+                }
+
+            }
+
         }
 
 
