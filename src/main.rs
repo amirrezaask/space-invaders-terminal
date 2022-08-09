@@ -1,5 +1,4 @@
 use ncurses::*;
-use rand::distributions::{Distribution, Standard};
 use rand::Rng;
 
 const WELCOME: &str = "welcome to space invaders";
@@ -7,10 +6,13 @@ const PLAYER_SHIP: &'static str = "YOUR SHIP";
 const YOU_WON: &'static str = "YOU WON, NICE JOB";
 const YOU_LOST: &'static str = "GET GOOOD PLS";
 const ENEMY1_SHIP: &'static str = "@@";
-const ROCKET: &'static str = "^";
+const PLAYER_ROCKET_SHAPE: &'static str = "^";
+const ENEMY_ROCKET_SHAPE: &'static str = "¿";
+
 const KEY_SPACE: i32 = ' ' as i32;
 const KEY_EXIT: i32 = 'q' as i32;
-const ENEMY_GRID: (i32, i32) = (5, 5); 
+const ENEMY_GRID: (i32, i32) = (5, 2);
+const ENEMY_CHANCE_TO_SHOOT: i32 = 100;
 
 #[derive(Debug, Clone)]
 enum Direction {
@@ -52,7 +54,7 @@ type ShipId = usize; // pointer to which ship in game struct
 struct Rocket {
     max_allowed_y: i32,
     max_allowed_x: i32,
-    owner: ShipId, 
+    side: Side,
     pos: Position,
     shape: &'static str,
     direction: Direction,
@@ -237,6 +239,16 @@ fn create_enemy_grid(max_height: i32, max_width: i32, num_rows: i32, num_cols: i
     ships
 }
 
+fn can_shoot() -> bool {
+    let mut rng = rand::thread_rng();
+    let number = rng.gen_range(1..=ENEMY_CHANCE_TO_SHOOT);
+
+    return match number {
+        1 => true,
+        _ => false
+    }
+}
+
 fn ship_rocket_colision(rocket: &Rocket, ship: &Ship) -> bool {
     if !rocket.destroyed && !ship.destroyed {
         return ship.hit_boxes().contains(&(rocket.pos.x, rocket.pos.y));
@@ -279,15 +291,18 @@ impl Game {
     pub fn clear(&self) {
         clear();
     }
-    pub fn shoot_rocket(&mut self, idx: ShipId) {
+    pub fn shoot_rocket(&mut self, idx: ShipId, direction: Direction, side: Side) {
         let ship = &self.ships[idx];
         self.rockets.push(Rocket {
             max_allowed_x: self.max_height,
             max_allowed_y: self.max_width,
             pos: Position { x: ship.pos.x + ship.shape.len() as i32/2, y: ship.pos.y-1 },
-            shape: ROCKET,
-            direction: Direction::Up,
-            owner: idx,
+            shape: match side {
+                Side::Enemy => ENEMY_ROCKET_SHAPE,
+                Side::Player => PLAYER_ROCKET_SHAPE,
+            },
+            direction,
+            side,
             destroyed: false,
                 
         });
@@ -367,6 +382,9 @@ impl Game {
         // find colisions of rockets and ships
         for ship in self.ships.iter_mut(){
             for rocket in self.rockets.iter_mut() {
+                if ship.side == rocket.side {
+                    continue;
+                }
                 if ship_rocket_colision(rocket, ship)  {
                     ship.destroyed = true;
                     rocket.destroyed = true;
@@ -376,23 +394,24 @@ impl Game {
         // remove destroyed rockets and ships
         self.rockets = self.rockets.clone().into_iter().filter(|rocket| !rocket.destroyed).collect();
         self.ships = self.ships.clone().into_iter().filter(|ship| !ship.destroyed).collect();
-        
-        if self.ships.len() < 2 {
-            match self.ships.len() {
-                1 => {
-                    if self.ships[0].side == Side::Player {
-                        self.result = GameResult::Won;
-                    } else {
-                        self.result = GameResult::Lost;
-                    }
-                }
-                0 => {
-                    self.result = GameResult::Lost;
-                }
-                _ => {
-                    panic!()
-                }
+
+        for idx in 1..self.ships.len() {
+            if can_shoot() {
+                self.shoot_rocket(idx, Direction::Down, Side::Enemy);
             }
+        }
+        
+        if self.ships.len() > 1 {
+            if self.ships[0].side == Side::Enemy {
+                self.result = GameResult::Lost;
+            }
+        }
+
+        if self.ships.len() == 1 {
+            if self.ships[0].side == Side::Player {
+                self.result = GameResult::Won;
+            }
+
         }
         
     }
@@ -479,7 +498,7 @@ impl Game {
                     self.update_states();
                 }
                 KEY_SPACE => {
-                    self.shoot_rocket(0);
+                    self.shoot_rocket(0, Direction::Up, Side::Player);
                     self.update_states();
                 }
                 KEY_EXIT => break,
