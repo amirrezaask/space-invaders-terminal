@@ -4,7 +4,7 @@ use rand::Rng;
 const WELCOME: &str = "welcome to space invaders";
 const PLAYER_SHIP: &'static str = "YOUR SHIP";
 const YOU_WON: &'static str = "YOU WON, NICE JOB";
-const YOU_LOST: &'static str = "GET GOOOD PLS";
+const YOU_LOST: &'static str = "GIT GUD PLS";
 const ENEMY1_SHIP: &'static str = "@@";
 const PLAYER_ROCKET_SHAPE: &'static str = "^";
 const ENEMY_ROCKET_SHAPE: &'static str = "¿";
@@ -40,13 +40,10 @@ impl Direction {
             6 => Direction::UpRight,
             7 => Direction::DownLeft,
             8 => Direction::DownRight,
-            _ => unreachable!()
-        }
+            _ => unreachable!(),
+        };
     }
 }
-
-
-
 
 type ShipId = usize; // pointer to which ship in game struct
 
@@ -75,7 +72,6 @@ impl Rocket {
                 if self.pos.y > self.max_allowed_y {
                     self.destroyed = true;
                 }
-
             }
             _ => {}
         }
@@ -138,7 +134,6 @@ impl Position {
                 self.down();
                 self.right();
             }
-
         }
     }
     pub fn up(&mut self) {
@@ -171,7 +166,7 @@ struct Ship {
 impl Ship {
     pub fn hit_boxes(&self) -> Vec<(i32, i32)> {
         let mut hits = Vec::<(i32, i32)>::new();
-        for x in self.pos.x..self.pos.x+self.shape.len() as i32 {
+        for x in self.pos.x..self.pos.x + self.shape.len() as i32 {
             hits.push((x, self.pos.y));
         }
 
@@ -196,8 +191,6 @@ impl Ship {
     pub fn left(&mut self) {
         self.pos.left();
     }
-
-    
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum GameResult {
@@ -220,13 +213,14 @@ struct Game {
 fn create_enemy_grid(max_height: i32, max_width: i32, num_rows: i32, num_cols: i32) -> Vec<Ship> {
     let mut ships = Vec::<Ship>::new();
     let enemy_x_delta = 2;
-    let x_offset =
-        (max_width - ((enemy_x_delta * (num_cols - 1)) + (num_cols * ENEMY1_SHIP.len() as i32))) / 2;
+    let x_offset = (max_width
+        - ((enemy_x_delta * (num_cols - 1)) + (num_cols * ENEMY1_SHIP.len() as i32)))
+        / 2;
     for i in 0..num_rows {
         for j in 0..num_cols {
             ships.push(Ship {
                 pos: Position {
-                    x: x_offset + (j * enemy_x_delta) + (j-1 * ENEMY1_SHIP.len() as i32),
+                    x: x_offset + (j * enemy_x_delta) + (j - 1 * ENEMY1_SHIP.len() as i32),
                     y: (max_height / 8) + i as i32,
                 },
                 shape: ENEMY1_SHIP,
@@ -245,8 +239,8 @@ fn can_shoot() -> bool {
 
     return match number {
         1 => true,
-        _ => false
-    }
+        _ => false,
+    };
 }
 
 fn ship_rocket_colision(rocket: &Rocket, ship: &Ship) -> bool {
@@ -276,7 +270,8 @@ impl Game {
             side: Side::Player,
         };
 
-        let mut ships: Vec<Ship> = create_enemy_grid(max_height, max_width, ENEMY_GRID.0, ENEMY_GRID.1);
+        let mut ships: Vec<Ship> =
+            create_enemy_grid(max_height, max_width, ENEMY_GRID.0, ENEMY_GRID.1);
         ships.insert(0, player);
         Self {
             max_height,
@@ -296,7 +291,10 @@ impl Game {
         self.rockets.push(Rocket {
             max_allowed_x: self.max_height,
             max_allowed_y: self.max_width,
-            pos: Position { x: ship.pos.x + ship.shape.len() as i32/2, y: ship.pos.y-1 },
+            pos: Position {
+                x: ship.pos.x + ship.shape.len() as i32 / 2,
+                y: ship.pos.y - 1,
+            },
             shape: match side {
                 Side::Enemy => ENEMY_ROCKET_SHAPE,
                 Side::Player => PLAYER_ROCKET_SHAPE,
@@ -304,60 +302,55 @@ impl Game {
             direction,
             side,
             destroyed: false,
-                
         });
     }
-    fn valid_move_for_a_ship(max_height:i32, max_width: i32, ship: &Ship, d: &Direction) -> bool {
+    fn valid_move_for_a_ship(max_height: i32, max_width: i32, ship: &Ship, d: &Direction) -> bool {
         match d {
             Direction::Up => {
-                if ship.pos.y-1 < 1 {
+                if ship.pos.y - 1 < 1 {
                     return false;
                 }
             }
 
             Direction::Down => {
-                if ship.pos.y+1 > max_height-1 {
+                if ship.pos.y + 1 > max_height - 1 {
                     return false;
                 }
             }
 
             Direction::Left => {
-                if ship.pos.x-1 < 1 {
+                if ship.pos.x - 1 < 1 {
                     return false;
                 }
             }
 
             Direction::Right => {
-                if ship.pos.x+1 > max_width-1 {
+                if ship.pos.x + 1 > max_width - 1 {
                     return false;
                 }
             }
 
             Direction::UpLeft => {
-                if ship.pos.y-1 < 1 || ship.pos.x-1 < 1 {
+                if ship.pos.y - 1 < 1 || ship.pos.x - 1 < 1 {
                     return false;
                 }
             }
             Direction::UpRight => {
-                if ship.pos.y-1 < 1 || ship.pos.x+1 > max_width - 1 {
+                if ship.pos.y - 1 < 1 || ship.pos.x + 1 > max_width - 1 {
                     return false;
                 }
             }
             Direction::DownLeft => {
-                if ship.pos.y+1 > max_height-1 || ship.pos.x-1 < 1 {
+                if ship.pos.y + 1 > max_height - 1 || ship.pos.x - 1 < 1 {
                     return false;
                 }
-
             }
             Direction::DownRight => {
-                if ship.pos.y+1 > max_height-1 || ship.pos.x+1 > max_width -1 {
+                if ship.pos.y + 1 > max_height - 1 || ship.pos.x + 1 > max_width - 1 {
                     return false;
                 }
-
             }
-
         }
-
 
         return true;
     }
@@ -377,30 +370,39 @@ impl Game {
                     break;
                 }
             }
-            
         }
         // find colisions of rockets and ships
-        for ship in self.ships.iter_mut(){
+        for ship in self.ships.iter_mut() {
             for rocket in self.rockets.iter_mut() {
                 if ship.side == rocket.side {
                     continue;
                 }
-                if ship_rocket_colision(rocket, ship)  {
+                if ship_rocket_colision(rocket, ship) {
                     ship.destroyed = true;
                     rocket.destroyed = true;
                 }
             }
         }
         // remove destroyed rockets and ships
-        self.rockets = self.rockets.clone().into_iter().filter(|rocket| !rocket.destroyed).collect();
-        self.ships = self.ships.clone().into_iter().filter(|ship| !ship.destroyed).collect();
+        self.rockets = self
+            .rockets
+            .clone()
+            .into_iter()
+            .filter(|rocket| !rocket.destroyed)
+            .collect();
+        self.ships = self
+            .ships
+            .clone()
+            .into_iter()
+            .filter(|ship| !ship.destroyed)
+            .collect();
 
         for idx in 1..self.ships.len() {
             if can_shoot() {
                 self.shoot_rocket(idx, Direction::Down, Side::Enemy);
             }
         }
-        
+
         if self.ships.len() > 1 {
             if self.ships[0].side == Side::Enemy {
                 self.result = GameResult::Lost;
@@ -411,9 +413,7 @@ impl Game {
             if self.ships[0].side == Side::Player {
                 self.result = GameResult::Won;
             }
-
         }
-        
     }
     fn render(&mut self) {
         self.update_states();
@@ -440,13 +440,10 @@ impl Game {
                     getch();
                 }
 
-                _ => {
-
-                }
+                _ => {}
             }
 
             return;
-
         }
         //draw enemies
         for ship in self.ships.iter_mut() {
@@ -457,8 +454,7 @@ impl Game {
         for rocket in self.rockets.iter_mut() {
             rocket.draw();
         }
-
-   }
+    }
 
     pub fn print_center(&self, text: &str) {
         let center = (
@@ -502,8 +498,9 @@ impl Game {
                     self.update_states();
                 }
                 KEY_EXIT => break,
-                ERR => { // user did not enter any thing just update states
-                   continue;
+                ERR => {
+                    // user did not enter any thing just update states
+                    continue;
                 }
                 _ => {
                     self.msg = Some("unkown key".to_string());
